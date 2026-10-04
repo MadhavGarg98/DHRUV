@@ -40,6 +40,14 @@ async def lifespan(app: FastAPI):
             uplink_task = asyncio.create_task(uplink_worker.run_loop())
         except Exception as err:
             print(f"Error initializing station node: {err}")
+    else:
+        # Central Cloud Hub mode: ensure tables exist if not already migrated
+        try:
+            from app.db import Base, engine
+            import app.models  # noqa: F401 - registers all ORM models
+            Base.metadata.create_all(bind=engine)
+        except Exception as err:
+            print(f"Warning: Automatic schema verification failed: {err}")
 
     escalation_task = asyncio.create_task(escalation_background_worker())
 
@@ -52,16 +60,25 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="DHRUV Polar API", lifespan=lifespan)
 
+# Production-safe CORS configuration
+allowed_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
+    "http://localhost:3000",
+    "http://localhost:5001",
+]
+frontend_url_env = os.environ.get("FRONTEND_URL", "").strip()
+if frontend_url_env:
+    for origin in frontend_url_env.split(","):
+        cleaned_origin = origin.strip().rstrip("/")
+        if cleaned_origin and cleaned_origin not in allowed_origins:
+            allowed_origins.append(cleaned_origin)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:4173",
-        "http://127.0.0.1:4173",
-        "*",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

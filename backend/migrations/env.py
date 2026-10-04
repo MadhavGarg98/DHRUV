@@ -25,7 +25,9 @@ if config.config_file_name is not None:
 # 5. Inject the DATABASE_URL from our .env file
 db_url = os.environ.get('DATABASE_URL')
 if db_url and db_url.startswith("postgres://"):
-    db_url = db_url.replace("postgres://", "postgresql://", 1)
+    db_url = db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+elif db_url and db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 if db_url:
     # Escape the % symbol so Python's configparser doesn't crash on encoded passwords (like %40)

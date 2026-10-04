@@ -1,4 +1,3 @@
-from app import db
 from app.models.role import Role, Permission, RolePermission
 
 class PermissionService:
