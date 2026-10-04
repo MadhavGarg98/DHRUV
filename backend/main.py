@@ -88,6 +88,7 @@ allowed_origins = [
     "http://127.0.0.1:4173",
     "http://localhost:3000",
     "http://localhost:5001",
+    "https://dhruvauto.netlify.app",
 ]
 frontend_url_env = os.environ.get("FRONTEND_URL", "").strip()
 if frontend_url_env:
