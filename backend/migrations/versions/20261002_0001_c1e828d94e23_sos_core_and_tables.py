@@ -17,104 +17,124 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # 1. Add SOS fields to incidents
-    op.add_column('incidents', sa.Column('is_sos', sa.Boolean(), nullable=False, server_default=sa.text('false')))
-    op.add_column('incidents', sa.Column('sos_category', sa.String(length=30), nullable=True))
-    op.add_column('incidents', sa.Column('source', sa.String(length=30), nullable=False, server_default='manual'))
-    op.add_column('incidents', sa.Column('reporter_personnel_id', sa.String(length=36), nullable=True))
-    op.add_column('incidents', sa.Column('people_affected', sa.Integer(), nullable=True))
-    op.add_column('incidents', sa.Column('details', sa.JSON(), nullable=True))
-    op.add_column('incidents', sa.Column('cancel_requested_at', sa.DateTime(timezone=True), nullable=True))
-    op.add_column('incidents', sa.Column('cancel_requested_by', sa.String(length=36), nullable=True))
-    op.add_column('incidents', sa.Column('cancel_requested_reason', sa.String(length=500), nullable=True))
-    op.add_column('incidents', sa.Column('cancel_confirmed_at', sa.DateTime(timezone=True), nullable=True))
-    op.add_column('incidents', sa.Column('cancel_confirmed_by', sa.String(length=36), nullable=True))
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    existing_tables = set(insp.get_table_names())
+    incident_cols = set(c['name'] for c in insp.get_columns('incidents')) if 'incidents' in existing_tables else set()
+    update_cols = set(c['name'] for c in insp.get_columns('incident_updates')) if 'incident_updates' in existing_tables else set()
 
-    op.create_index(op.f('ix_incidents_is_sos'), 'incidents', ['is_sos'], unique=False)
-    op.create_index(op.f('ix_incidents_sos_category'), 'incidents', ['sos_category'], unique=False)
-    op.create_foreign_key(None, 'incidents', 'personnel', ['reporter_personnel_id'], ['id'])
-    op.create_foreign_key(None, 'incidents', 'users', ['cancel_requested_by'], ['id'])
-    op.create_foreign_key(None, 'incidents', 'users', ['cancel_confirmed_by'], ['id'])
+    # 1. Add SOS fields to incidents
+    if 'is_sos' not in incident_cols:
+        op.add_column('incidents', sa.Column('is_sos', sa.Boolean(), nullable=False, server_default=sa.text('false')))
+        op.create_index(op.f('ix_incidents_is_sos'), 'incidents', ['is_sos'], unique=False)
+    if 'sos_category' not in incident_cols:
+        op.add_column('incidents', sa.Column('sos_category', sa.String(length=30), nullable=True))
+        op.create_index(op.f('ix_incidents_sos_category'), 'incidents', ['sos_category'], unique=False)
+    if 'source' not in incident_cols:
+        op.add_column('incidents', sa.Column('source', sa.String(length=30), nullable=False, server_default='manual'))
+    if 'reporter_personnel_id' not in incident_cols:
+        op.add_column('incidents', sa.Column('reporter_personnel_id', sa.String(length=36), nullable=True))
+        op.create_foreign_key(None, 'incidents', 'personnel', ['reporter_personnel_id'], ['id'])
+    if 'people_affected' not in incident_cols:
+        op.add_column('incidents', sa.Column('people_affected', sa.Integer(), nullable=True))
+    if 'details' not in incident_cols:
+        op.add_column('incidents', sa.Column('details', sa.JSON(), nullable=True))
+    if 'cancel_requested_at' not in incident_cols:
+        op.add_column('incidents', sa.Column('cancel_requested_at', sa.DateTime(timezone=True), nullable=True))
+    if 'cancel_requested_by' not in incident_cols:
+        op.add_column('incidents', sa.Column('cancel_requested_by', sa.String(length=36), nullable=True))
+        op.create_foreign_key(None, 'incidents', 'users', ['cancel_requested_by'], ['id'])
+    if 'cancel_requested_reason' not in incident_cols:
+        op.add_column('incidents', sa.Column('cancel_requested_reason', sa.String(length=500), nullable=True))
+    if 'cancel_confirmed_at' not in incident_cols:
+        op.add_column('incidents', sa.Column('cancel_confirmed_at', sa.DateTime(timezone=True), nullable=True))
+    if 'cancel_confirmed_by' not in incident_cols:
+        op.add_column('incidents', sa.Column('cancel_confirmed_by', sa.String(length=36), nullable=True))
+        op.create_foreign_key(None, 'incidents', 'users', ['cancel_confirmed_by'], ['id'])
 
     # 2. Add kind to incident_updates
-    op.add_column('incident_updates', sa.Column('kind', sa.String(length=30), nullable=False, server_default='note'))
-    op.create_index(op.f('ix_incident_updates_kind'), 'incident_updates', ['kind'], unique=False)
+    if 'kind' not in update_cols:
+        op.add_column('incident_updates', sa.Column('kind', sa.String(length=30), nullable=False, server_default='note'))
+        op.create_index(op.f('ix_incident_updates_kind'), 'incident_updates', ['kind'], unique=False)
 
     # 3. Create muster_entries table
-    op.create_table(
-        'muster_entries',
-        sa.Column('id', sa.String(length=36), primary_key=True),
-        sa.Column('station_id', sa.Integer(), sa.ForeignKey('stations.id'), nullable=True),
-        sa.Column('version', sa.Integer(), nullable=False, server_default='1'),
-        sa.Column('created_by', sa.String(length=36), sa.ForeignKey('users.id'), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('incident_id', sa.String(length=36), sa.ForeignKey('incidents.id'), nullable=False),
-        sa.Column('personnel_id', sa.String(length=36), sa.ForeignKey('personnel.id'), nullable=True),
-        sa.Column('user_id', sa.String(length=36), sa.ForeignKey('users.id'), nullable=True),
-        sa.Column('status', sa.String(length=20), nullable=False, server_default='unaccounted'),
-        sa.Column('reported_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
-        sa.Column('reported_by', sa.String(length=36), sa.ForeignKey('users.id'), nullable=True),
-        sa.Column('via', sa.String(length=30), nullable=False, server_default='self'),
-    )
-    op.create_index(op.f('ix_muster_entries_station_id'), 'muster_entries', ['station_id'], unique=False)
-    op.create_index(op.f('ix_muster_entries_created_by'), 'muster_entries', ['created_by'], unique=False)
-    op.create_index(op.f('ix_muster_entries_incident_id'), 'muster_entries', ['incident_id'], unique=False)
-    op.create_index(op.f('ix_muster_entries_personnel_id'), 'muster_entries', ['personnel_id'], unique=False)
-    op.create_index(op.f('ix_muster_entries_user_id'), 'muster_entries', ['user_id'], unique=False)
-    op.create_index(op.f('ix_muster_entries_status'), 'muster_entries', ['status'], unique=False)
+    if 'muster_entries' not in existing_tables:
+        op.create_table(
+            'muster_entries',
+            sa.Column('id', sa.String(length=36), primary_key=True),
+            sa.Column('station_id', sa.Integer(), sa.ForeignKey('stations.id'), nullable=True),
+            sa.Column('version', sa.Integer(), nullable=False, server_default='1'),
+            sa.Column('created_by', sa.String(length=36), sa.ForeignKey('users.id'), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
+            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
+            sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('incident_id', sa.String(length=36), sa.ForeignKey('incidents.id'), nullable=False),
+            sa.Column('personnel_id', sa.String(length=36), sa.ForeignKey('personnel.id'), nullable=True),
+            sa.Column('user_id', sa.String(length=36), sa.ForeignKey('users.id'), nullable=True),
+            sa.Column('status', sa.String(length=20), nullable=False, server_default='unaccounted'),
+            sa.Column('reported_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
+            sa.Column('reported_by', sa.String(length=36), sa.ForeignKey('users.id'), nullable=True),
+            sa.Column('via', sa.String(length=30), nullable=False, server_default='self'),
+        )
+        op.create_index(op.f('ix_muster_entries_station_id'), 'muster_entries', ['station_id'], unique=False)
+        op.create_index(op.f('ix_muster_entries_created_by'), 'muster_entries', ['created_by'], unique=False)
+        op.create_index(op.f('ix_muster_entries_incident_id'), 'muster_entries', ['incident_id'], unique=False)
+        op.create_index(op.f('ix_muster_entries_personnel_id'), 'muster_entries', ['personnel_id'], unique=False)
+        op.create_index(op.f('ix_muster_entries_user_id'), 'muster_entries', ['user_id'], unique=False)
+        op.create_index(op.f('ix_muster_entries_status'), 'muster_entries', ['status'], unique=False)
 
     # 4. Create assistance_requests table
-    op.create_table(
-        'assistance_requests',
-        sa.Column('id', sa.String(length=36), primary_key=True),
-        sa.Column('station_id', sa.Integer(), sa.ForeignKey('stations.id'), nullable=True),
-        sa.Column('version', sa.Integer(), nullable=False, server_default='1'),
-        sa.Column('created_by', sa.String(length=36), sa.ForeignKey('users.id'), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('incident_id', sa.String(length=36), sa.ForeignKey('incidents.id'), nullable=False),
-        sa.Column('neighbour_id', sa.String(length=36), nullable=True),
-        sa.Column('external_label', sa.String(length=100), nullable=True),
-        sa.Column('channel', sa.String(length=50), nullable=False, server_default='radio_vhf'),
-        sa.Column('status', sa.String(length=30), nullable=False, server_default='requested'),
-        sa.Column('script_text', sa.Text(), nullable=True),
-        sa.Column('requested_by', sa.String(length=36), sa.ForeignKey('users.id'), nullable=False),
-        sa.Column('contacted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('responded_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('note', sa.Text(), nullable=True),
-    )
-    op.create_index(op.f('ix_assistance_requests_station_id'), 'assistance_requests', ['station_id'], unique=False)
-    op.create_index(op.f('ix_assistance_requests_created_by'), 'assistance_requests', ['created_by'], unique=False)
-    op.create_index(op.f('ix_assistance_requests_incident_id'), 'assistance_requests', ['incident_id'], unique=False)
-    op.create_index(op.f('ix_assistance_requests_neighbour_id'), 'assistance_requests', ['neighbour_id'], unique=False)
-    op.create_index(op.f('ix_assistance_requests_status'), 'assistance_requests', ['status'], unique=False)
+    if 'assistance_requests' not in existing_tables:
+        op.create_table(
+            'assistance_requests',
+            sa.Column('id', sa.String(length=36), primary_key=True),
+            sa.Column('station_id', sa.Integer(), sa.ForeignKey('stations.id'), nullable=True),
+            sa.Column('version', sa.Integer(), nullable=False, server_default='1'),
+            sa.Column('created_by', sa.String(length=36), sa.ForeignKey('users.id'), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
+            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
+            sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('incident_id', sa.String(length=36), sa.ForeignKey('incidents.id'), nullable=False),
+            sa.Column('neighbour_id', sa.String(length=36), nullable=True),
+            sa.Column('external_label', sa.String(length=100), nullable=True),
+            sa.Column('channel', sa.String(length=50), nullable=False, server_default='radio_vhf'),
+            sa.Column('status', sa.String(length=30), nullable=False, server_default='requested'),
+            sa.Column('script_text', sa.Text(), nullable=True),
+            sa.Column('requested_by', sa.String(length=36), sa.ForeignKey('users.id'), nullable=False),
+            sa.Column('contacted_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('responded_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('note', sa.Text(), nullable=True),
+        )
+        op.create_index(op.f('ix_assistance_requests_station_id'), 'assistance_requests', ['station_id'], unique=False)
+        op.create_index(op.f('ix_assistance_requests_created_by'), 'assistance_requests', ['created_by'], unique=False)
+        op.create_index(op.f('ix_assistance_requests_incident_id'), 'assistance_requests', ['incident_id'], unique=False)
+        op.create_index(op.f('ix_assistance_requests_neighbour_id'), 'assistance_requests', ['neighbour_id'], unique=False)
+        op.create_index(op.f('ix_assistance_requests_status'), 'assistance_requests', ['status'], unique=False)
 
     # 5. Create station_neighbours table
-    op.create_table(
-        'station_neighbours',
-        sa.Column('id', sa.String(length=36), primary_key=True),
-        sa.Column('station_id', sa.Integer(), sa.ForeignKey('stations.id'), nullable=True),
-        sa.Column('version', sa.Integer(), nullable=False, server_default='1'),
-        sa.Column('created_by', sa.String(length=36), sa.ForeignKey('users.id'), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
-        sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('name', sa.String(length=100), nullable=False),
-        sa.Column('country', sa.String(length=50), nullable=False),
-        sa.Column('distance_km', sa.Float(), nullable=False),
-        sa.Column('distance_note', sa.String(length=100), nullable=True),
-        sa.Column('services', sa.JSON(), nullable=True),
-        sa.Column('contact_channels', sa.JSON(), nullable=True),
-        sa.Column('is_sample', sa.Boolean(), nullable=False, server_default=sa.text('true')),
-        sa.Column('notes', sa.Text(), nullable=True),
-    )
-    op.create_index(op.f('ix_station_neighbours_station_id'), 'station_neighbours', ['station_id'], unique=False)
-    op.create_index(op.f('ix_station_neighbours_created_by'), 'station_neighbours', ['created_by'], unique=False)
-    op.create_index(op.f('ix_station_neighbours_name'), 'station_neighbours', ['name'], unique=False)
+    if 'station_neighbours' not in existing_tables:
+        op.create_table(
+            'station_neighbours',
+            sa.Column('id', sa.String(length=36), primary_key=True),
+            sa.Column('station_id', sa.Integer(), sa.ForeignKey('stations.id'), nullable=True),
+            sa.Column('version', sa.Integer(), nullable=False, server_default='1'),
+            sa.Column('created_by', sa.String(length=36), sa.ForeignKey('users.id'), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
+            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.current_timestamp()),
+            sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('name', sa.String(length=100), nullable=False),
+            sa.Column('country', sa.String(length=50), nullable=False),
+            sa.Column('distance_km', sa.Float(), nullable=False),
+            sa.Column('distance_note', sa.String(length=100), nullable=True),
+            sa.Column('services', sa.JSON(), nullable=True),
+            sa.Column('contact_channels', sa.JSON(), nullable=True),
+            sa.Column('is_sample', sa.Boolean(), nullable=False, server_default=sa.text('true')),
+            sa.Column('notes', sa.Text(), nullable=True),
+        )
+        op.create_index(op.f('ix_station_neighbours_station_id'), 'station_neighbours', ['station_id'], unique=False)
+        op.create_index(op.f('ix_station_neighbours_created_by'), 'station_neighbours', ['created_by'], unique=False)
+        op.create_index(op.f('ix_station_neighbours_name'), 'station_neighbours', ['name'], unique=False)
 
 
 def downgrade() -> None:

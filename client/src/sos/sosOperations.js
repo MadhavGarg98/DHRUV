@@ -170,7 +170,7 @@ export async function acknowledgeIncident(incidentId) {
   });
 
   // Non-blocking network sync attempt
-  api.post(`/sos/${incidentId}/ack`).catch(() => {});
+  api.post(`/api/sos/${incidentId}/ack`).catch(() => {});
   return update;
 }
 
@@ -202,7 +202,7 @@ export async function respondToIncident(incidentId, note) {
     priority: PRIORITIES.INCIDENT_UPDATE,
   });
 
-  api.post(`/sos/${incidentId}/respond`, { note: responderNote }).catch(() => {});
+  api.post(`/api/sos/${incidentId}/respond`, { note: responderNote }).catch(() => {});
   return update;
 }
 
@@ -236,7 +236,7 @@ export async function escalateIncident(incidentId, level, note = '') {
     priority: PRIORITIES.INCIDENT_UPDATE,
   });
 
-  api.post(`/sos/${incidentId}/escalate`, { level, note }).catch(() => {});
+  api.post(`/api/sos/${incidentId}/escalate`, { level, note }).catch(() => {});
   return update;
 }
 
@@ -273,7 +273,7 @@ export async function confirmCancellation(incidentId, note = '') {
     priority: PRIORITIES.INCIDENT_UPDATE,
   });
 
-  api.post(`/sos/${incidentId}/cancel-confirm`, { note }).catch(() => {});
+  api.post(`/api/sos/${incidentId}/cancel-confirm`, { note }).catch(() => {});
   return update;
 }
 
@@ -349,7 +349,7 @@ export async function resolveIncident(incidentId, note, resolutionType = 'Resolv
     priority: PRIORITIES.INCIDENT_UPDATE,
   });
 
-  api.post(`/sos/${incidentId}/resolve`, { note: fullNote }).catch(() => {});
+  api.post(`/api/sos/${incidentId}/resolve`, { note: fullNote }).catch(() => {});
   return update;
 }
 
@@ -381,7 +381,7 @@ export async function reportMusterStatus({ incidentId, personnelId, status = 'sa
     priority: PRIORITIES.MUSTER,
   });
 
-  api.post(`/sos/${incidentId}/muster/report`, {
+  api.post(`/api/sos/${incidentId}/muster/report`, {
     status,
     personnel_id: personnelId || user.personnel_id || null,
     via,
@@ -418,7 +418,7 @@ export async function markPersonnelMuster({ incidentId, personnelId, userId, sta
     priority: PRIORITIES.MUSTER,
   });
 
-  api.post(`/sos/${incidentId}/muster/mark`, {
+  api.post(`/api/sos/${incidentId}/muster/mark`, {
     personnel_id: personnelId,
     user_id: userId,
     status,
@@ -465,7 +465,7 @@ export async function createAssistanceRequest({
     priority: PRIORITIES.INCIDENT_UPDATE,
   });
 
-  api.post(`/sos/${incidentId}/aid-requests`, {
+  api.post(`/api/sos/${incidentId}/aid-requests`, {
     neighbour_id: neighbourId,
     external_label: externalLabel,
     channel,
@@ -490,7 +490,7 @@ export async function updateAssistanceStatus({ incidentId, aidId, status, note =
     await db.assistance_requests.update(aidId, patch);
   }
 
-  api.patch(`/sos/${incidentId}/aid-requests/${aidId}/status`, {
+  api.patch(`/api/sos/${incidentId}/aid-requests/${aidId}/status`, {
     status,
     note,
   }).catch(() => {});

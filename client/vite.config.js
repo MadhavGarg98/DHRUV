@@ -38,7 +38,10 @@ export default defineConfig({
         runtimeCaching: [
           {
             // Cache API requests for offline availability with NetworkFirst strategy
-            urlPattern: /^\/api\/.*$/,
+            // Matches both same-origin /api/ and cross-origin requests to the Render backend
+            urlPattern: ({url}) => {
+              return url.pathname.startsWith('/api/');
+            },
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',

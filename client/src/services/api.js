@@ -1,25 +1,48 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+// Clean base URL: trim whitespace and remove trailing slashes
+const rawBase = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+
+// If rawBase is empty, fallback to '/api' so local dev proxy works seamlessly
+const API_BASE_URL = rawBase || '/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 8000,
+  timeout: 15000,
 });
 
 
+/**
+ * Normalizes request URLs to prevent double '/api/api' when baseURL ends with '/api',
+ * while ensuring that paths missing '/api' still route correctly to the backend.
+ */
 function normalizeUrl(url) {
-  if (
-    API_BASE_URL.endsWith('/api') &&
-    url.startsWith('/api/')
-  ) {
-    return url.replace(/^\/api/, '');
+  if (!url) return url;
+  if (/^https?:\/\//i.test(url)) return url;
+
+  let cleanUrl = url.startsWith('/') ? url : `/${url}`;
+
+  // If baseURL already ends with /api (e.g. baseURL = '/api' or 'https://.../api')
+  if (API_BASE_URL.endsWith('/api')) {
+    if (cleanUrl.startsWith('/api/')) {
+      return cleanUrl.replace(/^\/api/, '');
+    }
+    if (cleanUrl === '/api') {
+      return '';
+    }
+    return cleanUrl;
   }
 
-  return url;
+  // If baseURL does NOT end with /api (e.g. baseURL = 'https://dhruv-40xa.onrender.com')
+  // Ensure the route starts with /api
+  if (!cleanUrl.startsWith('/api/') && cleanUrl !== '/api') {
+    return `/api${cleanUrl}`;
+  }
+
+  return cleanUrl;
 }
 
 
