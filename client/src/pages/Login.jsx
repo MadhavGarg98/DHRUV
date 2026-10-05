@@ -4,28 +4,31 @@ import { Link, useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth';
 
 /* ------------------------------------------------------------------ */
-/*  Demo accounts — keep in sync with backend/seed_demo.py            */
+/* Demo accounts — keep in sync with backend/seed_demo.py             */
 /* ------------------------------------------------------------------ */
 const DEMO_ACCOUNTS = [
   {
     role: 'Central Command',
     user: 'demo_command',
     pw: 'password123',
-    desc: 'Sees every station, alerts and incidents',
+    desc: 'All stations, alerts & incidents',
+    icon: 'hub',
     recommended: true,
   },
   {
     role: 'Station Leader',
     user: 'demo_station',
     pw: 'password123',
-    desc: 'Manages one station\u2019s stock and people',
+    desc: 'Station stock, people & operations',
+    icon: 'home_work',
     recommended: false,
   },
   {
     role: 'Field Member',
     user: 'demo_field',
     pw: 'password123',
-    desc: 'Raises an SOS from the field',
+    desc: 'Field view & emergency SOS',
+    icon: 'person_pin_circle',
     recommended: false,
   },
 ];
@@ -33,9 +36,6 @@ const DEMO_ACCOUNTS = [
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 const AUTO_LOGIN = import.meta.env.VITE_DEMO_AUTOLOGIN === 'true';
 
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
 function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -48,7 +48,6 @@ function Login() {
   const loginBtnRef = useRef(null);
   const ariaLiveRef = useRef(null);
 
-  // Clear the highlight ring when the user manually edits a field
   const handleUsernameChange = useCallback((e) => {
     setUsername(e.target.value);
     setLoginHighlight(false);
@@ -63,7 +62,6 @@ function Login() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-
     setError('');
     setLoading(true);
 
@@ -81,11 +79,11 @@ function Login() {
     }
   };
 
-  // Auto-login helper (reuses the same logic as handleSubmit)
   const performAutoLogin = useCallback(
     async (u, p) => {
       setError('');
       setLoading(true);
+
       try {
         await authService.login(u, p);
         navigate('/dashboard');
@@ -110,281 +108,319 @@ function Login() {
       setSelectedDemo(acct.user);
       setLoginHighlight(true);
 
-      // Announce to screen readers
       if (ariaLiveRef.current) {
-        ariaLiveRef.current.textContent = `Credentials filled for ${acct.role}`;
+        ariaLiveRef.current.textContent =
+          `${acct.role} selected. Credentials filled. Press Login to continue.`;
       }
 
-      // Optional auto-login
       if (AUTO_LOGIN) {
         performAutoLogin(acct.user, acct.pw);
         return;
       }
 
-      // Scroll Login button into view and focus it
       setTimeout(() => {
-        if (loginBtnRef.current) {
-          const prefersReduced = window.matchMedia(
-            '(prefers-reduced-motion: reduce)'
-          ).matches;
-          loginBtnRef.current.scrollIntoView({
-            behavior: prefersReduced ? 'auto' : 'smooth',
-            block: 'nearest',
-          });
-          loginBtnRef.current.focus();
-        }
+        loginBtnRef.current?.scrollIntoView({
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'auto'
+            : 'smooth',
+          block: 'nearest',
+        });
       }, 0);
     },
     [performAutoLogin]
   );
 
-  // Remove highlight after successful submit
   useEffect(() => {
-    if (!loading) return;
-    setLoginHighlight(false);
+    if (loading) setLoginHighlight(false);
   }, [loading]);
 
+  const selectedAccount = DEMO_ACCOUNTS.find(
+    (acct) => acct.user === selectedDemo
+  );
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface">
-      <div className="max-w-md w-full bg-surface-container border border-outline-variant rounded-[3px] p-space-lg shadow-lg">
-        {/* ---- Branding ---- */}
-        <div className="text-center mb-space-lg">
-          <div className="flex items-center justify-center gap-space-xs mb-space-sm">
-            <span className="material-symbols-outlined text-[48px] text-primary">
-              explore
-            </span>
+    <div className="min-h-screen bg-[#eef5f8] px-4 py-6 sm:py-8">
+      <div className="mx-auto w-full max-w-[600px]">
+
+        {/* BRAND — deliberately compact */}
+        <header className="mb-5 text-center">
+          <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-[#d9edf3] text-[#246d76]">
+            <span className="material-symbols-outlined text-[21px]">explore</span>
           </div>
 
-          <h1 className="font-headline-xl text-headline-xl text-on-surface tracking-tight">
+          <h1 className="font-headline-xl text-[31px] leading-none tracking-tight text-[#172b34]">
             DHRUV
           </h1>
 
-          <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mt-space-xs">
-            Polar Operations
-          </p>
-
-          <div className="mt-space-sm px-space-xs py-[2px] bg-secondary-container text-on-secondary-fixed-variant border border-outline-variant rounded-sm font-data-mono-md inline-block">
-            NCPOR
+          <div className="mt-1 flex items-center justify-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#607780]">
+              POLAR OPERATIONS
+            </span>
+            <span className="h-1 w-1 rounded-full bg-[#9db1b7]" />
+            <span className="text-[10px] font-bold tracking-wide text-[#356d76]">
+              NCPOR • SIH DEMO
+            </span>
           </div>
-        </div>
+        </header>
 
-        {/* ---- Demo box (above the form) ---- */}
-        {DEMO_MODE && (
-          <div className="mb-space-lg border border-outline-variant rounded-[3px] p-space-md bg-surface">
-            {/* Title */}
-            <p className="font-title-sm text-title-sm text-on-surface font-semibold mb-space-xs">
-              Judges and testers: sign in with a demo account
-            </p>
+        <main className="overflow-hidden rounded-2xl border border-[#d4e2e7] bg-white shadow-[0_14px_40px_rgba(31,55,65,0.09)]">
 
-            {/* Step markers */}
-            <div className="flex items-center gap-space-md mb-space-md">
-              <span className="inline-flex items-center gap-[4px] font-body-sm text-body-sm text-on-surface-variant">
-                <span className="inline-flex items-center justify-center w-[20px] h-[20px] rounded-full bg-primary-container text-on-surface font-label-sm text-[11px] font-semibold">
-                  1
-                </span>
-                Tap a role
-              </span>
-              <span className="inline-flex items-center gap-[4px] font-body-sm text-body-sm text-on-surface-variant">
-                <span className="inline-flex items-center justify-center w-[20px] h-[20px] rounded-full bg-primary-container text-on-surface font-label-sm text-[11px] font-semibold">
-                  2
-                </span>
-                Press Login
-              </span>
-            </div>
+          {DEMO_MODE && (
+            <section className="bg-[#f8fbfc] p-4 sm:p-5">
 
-            {/* Account cards */}
-            <div className="flex flex-col gap-space-xs">
-              {DEMO_ACCOUNTS.map((acct) => {
-                const isSelected = selectedDemo === acct.user;
-                return (
-                  <button
-                    key={acct.user}
-                    type="button"
-                    aria-label={`Use ${acct.role} account: ${acct.user}`}
-                    className={[
-                      'relative w-full min-h-[64px] text-left px-space-md py-space-sm rounded-[3px] border transition-colors',
-                      'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1',
-                      isSelected
-                        ? 'border-primary bg-primary-container'
-                        : 'border-outline-variant bg-surface hover:bg-primary-container/30',
-                    ].join(' ')}
-                    onClick={() => handleDemoSelect(acct)}
-                  >
-                    {/* Recommended tag */}
-                    {acct.recommended && (
-                      <span className="absolute top-[6px] right-[8px] inline-flex items-center gap-[2px] px-[6px] py-[1px] rounded-sm bg-secondary-container text-on-secondary-fixed-variant font-label-sm text-[10px] uppercase tracking-wider">
-                        <span className="material-symbols-outlined text-[12px]">
-                          star
+              {/* THE ONE THING A JUDGE NEEDS TO SEE FIRST */}
+              <div className="mb-4 rounded-xl border border-[#cfe1e5] bg-white px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#d9edf3] text-[#246d76]">
+                    <span className="material-symbols-outlined text-[20px]">
+                      touch_app
+                    </span>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-[16px] font-bold leading-5 text-[#172b34]">
+                      SIH Judge Demo
+                    </h2>
+                    <p className="mt-0.5 text-[11px] leading-4 text-[#657c84]">
+                      Select a role — credentials fill automatically.
+                    </p>
+                  </div>
+
+                  <span className="hidden shrink-0 rounded-full bg-[#e7f3ee] px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-[#27634e] sm:block">
+                    Demo Access
+                  </span>
+                </div>
+
+                {/* Very short instruction */}
+                <div className="mt-3 flex items-center gap-2 border-t border-[#edf1f3] pt-3">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#2f7880] text-[10px] font-bold text-white">
+                    1
+                  </span>
+                  <span className="text-[11px] font-semibold text-[#526a72]">
+                    Choose a role
+                  </span>
+                  <span className="text-[#a4b4b9]">→</span>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#2f7880] text-[10px] font-bold text-white">
+                    2
+                  </span>
+                  <span className="text-[11px] font-semibold text-[#526a72]">
+                    Press Login
+                  </span>
+                </div>
+              </div>
+
+              {/* ROLE LIST — compact, scannable */}
+              <div className="space-y-2">
+                {DEMO_ACCOUNTS.map((acct) => {
+                  const isSelected = selectedDemo === acct.user;
+
+                  return (
+                    <button
+                      key={acct.user}
+                      type="button"
+                      aria-label={`Use ${acct.role} account: ${acct.user}`}
+                      onClick={() => handleDemoSelect(acct)}
+                      className={[
+                        'relative flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all',
+                        'focus:outline-none focus:ring-2 focus:ring-[#2f7880] focus:ring-offset-1',
+                        isSelected
+                          ? 'border-[#2f7880] bg-[#edf8f8] shadow-sm'
+                          : acct.recommended
+                            ? 'border-[#c6dde1] bg-[#fbfefe] shadow-[0_2px_8px_rgba(47,120,128,0.05)] hover:border-[#8fbfc6] hover:bg-[#f8fcfc]'
+                            : 'border-[#d9e5e9] bg-white hover:border-[#a9cbd1] hover:bg-[#fbfdfd]',
+                      ].join(' ')}
+                    >
+                      {/* Icon */}
+                      <div
+                        className={[
+                          'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                          isSelected
+                            ? 'bg-[#2f7880] text-white'
+                            : 'bg-[#edf4f6] text-[#356d76]',
+                        ].join(' ')}
+                      >
+                        <span className="material-symbols-outlined text-[19px]">
+                          {acct.icon}
                         </span>
-                        Recommended
-                      </span>
-                    )}
+                      </div>
 
-                    {/* Selected indicator */}
-                    {isSelected && (
-                      <span className="absolute top-[6px] right-[8px] inline-flex items-center gap-[3px] px-[6px] py-[1px] rounded-sm bg-primary text-on-primary font-label-sm text-[10px]">
-                        <span className="material-symbols-outlined text-[14px]">
-                          check_circle
+                      {/* Role + purpose */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[13px] font-bold leading-4 text-[#172b34]">
+                            {acct.role}
+                          </span>
+
+                          {acct.recommended && (
+                            <span className="rounded-full bg-[#fff1d9] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[#95621c]">
+                              Recommended start
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="mt-0.5 text-[10px] leading-3.5 text-[#71868d]">
+                          {acct.desc}
+                        </p>
+                      </div>
+
+                      {/* Credentials */}
+                      <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
+                        <span className="rounded-md bg-[#f2f6f7] px-2 py-1 font-mono text-[9px] text-[#587079]">
+                          {acct.user}
                         </span>
-                        Selected, now press Login
-                      </span>
-                    )}
+                        <span className="rounded-md bg-[#f2f6f7] px-2 py-1 font-mono text-[9px] text-[#587079]">
+                          {acct.pw}
+                        </span>
+                      </div>
 
-                    {/* Role name */}
-                    <span className="block font-title-sm text-title-sm text-on-surface font-semibold pr-[120px]">
-                      {acct.role}
-                    </span>
+                      {/* Action */}
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#d7e3e7] text-[#78939a]">
+                        <span className="material-symbols-outlined text-[17px]">
+                          {isSelected ? 'check' : 'arrow_forward'}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
 
-                    {/* Description */}
-                    <span className="block font-body-sm text-body-sm text-on-surface-variant mt-[2px]">
-                      {acct.desc}
-                    </span>
+              <p className="mt-3 text-center text-[9px] text-[#8a9da3]">
+                Sample data only • No real expedition data is used
+              </p>
+            </section>
+          )}
 
-                    {/* Credentials */}
-                    <span className="block font-data-mono-md text-on-surface-variant mt-[4px]" style={{ fontSize: '11px' }}>
-                      Username:&nbsp;{acct.user}&nbsp;&nbsp;&nbsp;Password:&nbsp;{acct.pw}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          {/* LOGIN — compact single action area */}
+          <section className="border-t border-[#dce7eb] bg-white p-4 sm:p-5">
 
-            {/* Sample data note */}
-            <p className="font-body-sm text-on-surface-variant mt-space-sm text-center" style={{ fontSize: '11px' }}>
-              Sample data only.
-            </p>
-          </div>
-        )}
-
-        {/* ---- Aria-live region for screen readers ---- */}
-        <div
-          ref={ariaLiveRef}
-          aria-live="polite"
-          aria-atomic="true"
-          className="sr-only"
-        />
-
-        {/* ---- Error banner ---- */}
-        {error && (
-          <div className="bg-error-container border border-error text-on-error-container px-space-md py-space-sm rounded-[3px] mb-space-md font-body-sm text-body-sm">
-            <div className="flex items-center gap-space-xs">
-              <span className="material-symbols-outlined text-[18px]">
-                error
-              </span>
-
-              {error}
-            </div>
-          </div>
-        )}
-
-        {/* ---- Login form (unchanged behaviour) ---- */}
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-space-md"
-        >
-          <div>
-            <label className="block font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-space-xs">
-              Username
-            </label>
-
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-space-md top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant">
-                person
-              </span>
-
-              <input
-                type="text"
-                value={username}
-                onChange={handleUsernameChange}
-                className="w-full pl-10 pr-space-md py-space-sm bg-surface border border-outline-variant rounded-[3px] text-on-surface font-body-md text-body-md focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                placeholder="Enter your username"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-space-xs">
-              Password
-            </label>
-
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-space-md top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant">
-                lock
-              </span>
-
-              <input
-                type="password"
-                value={password}
-                onChange={handlePasswordChange}
-                className="w-full pl-10 pr-space-md py-space-sm bg-surface border border-outline-variant rounded-[3px] text-on-surface font-body-md text-body-md focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                placeholder="Enter your password"
-                required
-              />
-            </div>
-          </div>
-
-          <button
-            ref={loginBtnRef}
-            type="submit"
-            disabled={loading}
-            className={[
-              'w-full bg-primary-container text-on-primary py-space-sm px-space-md rounded-[3px] font-title-sm text-title-sm hover:bg-primary disabled:bg-surface-container disabled:text-on-surface-variant transition-colors flex items-center justify-center gap-space-xs',
-              loginHighlight
-                ? 'ring-2 ring-primary ring-offset-2'
-                : '',
-            ].join(' ')}
-          >
-            {loading ? (
-              <>
-                <span className="material-symbols-outlined animate-spin">
-                  refresh
+            {selectedAccount ? (
+              <div className="mb-3 flex items-center gap-2 rounded-lg bg-[#eef8f7] px-3 py-2">
+                <span className="material-symbols-outlined text-[17px] text-[#2f7880]">
+                  check_circle
                 </span>
-
-                Logging in...
-              </>
+                <p className="text-[11px] font-semibold text-[#2b646b]">
+                  {selectedAccount.role} selected — credentials are ready.
+                </p>
+              </div>
             ) : (
-              <>
-                <span className="material-symbols-outlined">
-                  login
-                </span>
-
-                Login
-              </>
+              <div className="mb-3">
+                <h2 className="text-[15px] font-bold text-[#172b34]">
+                  Ready to sign in?
+                </h2>
+                <p className="mt-0.5 text-[10px] text-[#71868d]">
+                  Select a demo role above, or enter credentials manually.
+                </p>
+              </div>
             )}
-          </button>
-        </form>
 
-        <div className="mt-space-md text-center">
-          <p className="font-body-sm text-body-sm text-on-surface-variant">
-            Do not have an account?{' '}
-            <Link
-              to="/register"
-              className="text-primary hover:underline font-semibold"
+            <div
+              ref={ariaLiveRef}
+              aria-live="polite"
+              aria-atomic="true"
+              className="sr-only"
+            />
+
+            {error && (
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">
+                <span className="material-symbols-outlined text-[16px]">error</span>
+                {error}
+              </div>
+            )}
+
+            {/* Desktop: fields + button on one line. Mobile: stacked. */}
+            <form
+              onSubmit={handleSubmit}
+              className="grid grid-cols-1 gap-2.5 sm:grid-cols-[1fr_1fr_auto]"
             >
-              Sign Up
-            </Link>
-          </p>
-        </div>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[17px] text-[#81969d]">
+                  person
+                </span>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={handleUsernameChange}
+                  className="h-10 w-full rounded-lg border border-[#d4e1e5] bg-white pl-9 pr-3 text-[11px] text-[#172b34] outline-none focus:border-[#2f7880] focus:ring-2 focus:ring-[#2f7880]/10"
+                  placeholder="Username"
+                  required
+                  aria-label="Username"
+                />
+              </div>
 
-        <div className="mt-space-lg pt-space-md border-t border-outline-variant text-center">
-          <p className="font-title-sm text-title-sm text-on-surface font-semibold">
-            DHRUV
-          </p>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[17px] text-[#81969d]">
+                  lock
+                </span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={handlePasswordChange}
+                  className="h-10 w-full rounded-lg border border-[#d4e1e5] bg-white pl-9 pr-3 text-[11px] text-[#172b34] outline-none focus:border-[#2f7880] focus:ring-2 focus:ring-[#2f7880]/10"
+                  placeholder="Password"
+                  required
+                  aria-label="Password"
+                />
+              </div>
 
-          <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-xs">
-            Plan. Track. Predict. Respond.
-          </p>
+              <button
+                ref={loginBtnRef}
+                type="submit"
+                disabled={loading}
+                className={[
+                  'h-10 rounded-lg px-5 text-[11px] font-bold text-white shadow-sm transition-all',
+                  'flex items-center justify-center gap-1.5 whitespace-nowrap',
+                  'bg-[#2f7880] hover:bg-[#276970] hover:shadow-md',
+                  'disabled:cursor-not-allowed disabled:bg-[#9fb4b9]',
+                  loginHighlight
+                    ? 'ring-4 ring-[#2f7880]/20 ring-offset-1'
+                    : '',
+                ].join(' ')}
+              >
+                {loading ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin text-[16px]">
+                      refresh
+                    </span>
+                    Logging in
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[16px]">
+                      login
+                    </span>
+                    Login
+                  </>
+                )}
+              </button>
+            </form>
 
-          <p className="font-label-sm text-label-sm text-secondary mt-space-xs">
-            Even when the network is down.
-          </p>
-        </div>
+            <div className="mt-3 text-center">
+              <p className="text-[10px] text-[#7a8d94]">
+                Don't have an account?{' '}
+                <Link
+                  to="/register"
+                  className="font-bold text-[#2f7880] hover:underline"
+                >
+                  Sign Up
+                </Link>
+              </p>
+            </div>
+          </section>
 
-        <div className="mt-space-md pt-space-sm border-t border-outline-variant flex items-center justify-between text-on-surface-variant font-data-mono-md text-body-sm">
-          <span>Terminal: IND-CMD-01</span>
-          <span>NCPOR</span>
-        </div>
+          {/* COMPACT FOOTER */}
+          <footer className="flex items-center justify-between border-t border-[#e0e8eb] bg-[#f8fbfc] px-4 py-2.5 text-[9px] text-[#8a9da3]">
+            <span className="font-semibold text-[#62777e]">
+              DHRUV • Polar Operations
+            </span>
+            <span className="font-mono">
+              IND-CMD-01 • NCPOR
+            </span>
+          </footer>
+        </main>
+
+        <p className="mt-3 text-center text-[9px] text-[#8a9da3]">
+          Offline-first polar expedition management system
+        </p>
       </div>
     </div>
   );
